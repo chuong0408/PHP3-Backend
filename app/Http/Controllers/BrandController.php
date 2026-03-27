@@ -19,7 +19,7 @@ class BrandController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $brand = Brand::create($request->all());
+        $brand = Brand::create(['name' => $request->name]);
         return response()->json($brand, 201);
     }
 
@@ -34,7 +34,7 @@ class BrandController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $brand->update($request->all());
+        $brand->update(['name' => $request->name]);
         return response()->json($brand);
     }
 
