@@ -21,6 +21,7 @@ class Product extends Model
     {
         return $this->belongsTo(Brand::class, 'brand_id');
     }
+
     // Quan hệ với ProductImg (bảng product_img)
     public function images()
     {
@@ -32,4 +33,5 @@ class Product extends Model
     {
         return $this->hasMany(ProductSku::class, 'product_id');
     }
+
 }
