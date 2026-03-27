@@ -12,16 +12,23 @@ Route::prefix('admin')->group(function () {
     Route::apiResource('brands',     BrandController::class);
 });
 
-// ── AUTH (không cần đăng nhập) ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
-    Route::post('/register',       [AuthController::class, 'register']);
-    Route::post('/login',          [AuthController::class, 'login']);
-    Route::post('/send-otp',       [AuthController::class, 'sendOtp']);
-    Route::post('/verify-otp',     [AuthController::class, 'verifyOtp']);
-    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-});
 
-// ── AUTH (cần đăng nhập) ──────────────────────────────────────────────────────
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/auth/logout', [AuthController::class, 'logout']);
+    // Đăng ký / Đăng nhập thường
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login',    [AuthController::class, 'login']);
+
+    // Google OAuth
+    Route::get('/google/redirect',  [AuthController::class, 'redirectToGoogle']);
+    Route::get('/google/callback',  [AuthController::class, 'handleGoogleCallback']);
+
+    Route::post('/send-otp',      [AuthController::class, 'sendOtp']);
+    Route::post('/verify-otp',    [AuthController::class, 'verifyOtp']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
+    // Đăng xuất / thông tin user (cần token)
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/me',      [AuthController::class, 'me']);
+    });
 });

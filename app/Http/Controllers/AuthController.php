@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\RegisterSuccessMail;
 use App\Models\User;
 use App\Mail\OtpMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
@@ -16,42 +20,52 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'fullname' => 'required|string|max:255',
-            'email'    => 'required|email|unique:user,email',
-            'phone'    => 'required|string|max:50',
-            'password' => 'required|string|min:6',
-            'address'  => 'nullable|string|max:255',
+            'email' => 'required|string|email|max:255|unique:user',
+            'password' => 'required|string|min:6|confirmed',
         ], [
-            'email.unique'    => 'Email này đã được sử dụng.',
-            'email.required'  => 'Email không được để trống.',
-            'password.min'    => 'Mật khẩu tối thiểu 6 ký tự.',
+            'name.required'      => 'Vui lòng nhập họ tên.',
+            'email.required'     => 'Vui lòng nhập email.',
+            'email.email'        => 'Email không hợp lệ.',
+            'email.unique'       => 'Email này đã được sử dụng.',
+            'password.required'  => 'Vui lòng nhập mật khẩu.',
+            'password.min'       => 'Mật khẩu phải có ít nhất 6 ký tự.',
+            'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'message' => $validator->errors()->first(),
+                'success' => false,
+                'message' => 'Dữ liệu không hợp lệ.',
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
         $user = User::create([
             'fullname' => $request->fullname,
+            'phone'    => $request->phone ?? '',
             'email'    => $request->email,
-            'phone'    => $request->phone,
-            'address'  => $request->address ?? '',
             'password' => Hash::make($request->password),
-            'role'     => 0,
-            'status'   => 1,
-            'brithday' => now(),
-            'image'    => '',
-            'otp'      => '',
-            'otp_time' => now(),
+            'role'     => 0, // 0 = user, 1 = admin
+            'provider' => 'local',
         ]);
+
+        // Gửi email đăng ký thành công
+        try {
+            Mail::to($user->email)->send(new RegisterSuccessMail($user));
+        } catch (\Exception $e) {
+            // Không dừng luồng nếu gửi mail thất bại
+            Log::warning('Không thể gửi email đăng ký: ' . $e->getMessage());
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Đăng ký thành công!',
-            'token'   => $token,
-            'user'    => $this->formatUser($user),
+            'success' => true,
+            'message' => 'Đăng ký thành công! Chúng tôi đã gửi email xác nhận đến ' . $user->email,
+            'data'    => [
+                'user'  => $this->formatUser($user),
+                'token' => $token,
+            ],
         ], 201);
     }
 
@@ -61,37 +75,53 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'email'    => 'required|email',
             'password' => 'required|string',
+        ], [
+            'email.required'    => 'Vui lòng nhập email.',
+            'email.email'       => 'Email không hợp lệ.',
+            'password.required' => 'Vui lòng nhập mật khẩu.',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'message' => $validator->errors()->first(),
+                'success' => false,
+                'message' => 'Dữ liệu không hợp lệ.',
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user) {
             return response()->json([
-                'message' => 'Email hoặc mật khẩu không đúng.',
+                'success' => false,
+                'message' => 'Email không tồn tại trong hệ thống.',
             ], 401);
         }
 
-        if ($user->status == 0) {
+        // Tài khoản Google không có password
+        if ($user->provider === 'google' && empty($user->password)) {
             return response()->json([
-                'message' => 'Tài khoản của bạn đã bị khóa.',
-            ], 403);
+                'success' => false,
+                'message' => 'Tài khoản này được đăng ký bằng Google. Vui lòng đăng nhập bằng Google.',
+            ], 401);
         }
 
-        // Xóa token cũ (optional - 1 session tại một thời điểm)
-        $user->tokens()->delete();
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mật khẩu không chính xác.',
+            ], 401);
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
+            'success' => true,
             'message' => 'Đăng nhập thành công!',
-            'token'   => $token,
-            'user'    => $this->formatUser($user),
+            'data'    => [
+                'user'  => $this->formatUser($user),
+                'token' => $token,
+            ],
         ]);
     }
 
@@ -101,6 +131,123 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Đăng xuất thành công.']);
+    }
+
+    // LẤY THÔNG TIN USER HIỆN TẠI
+    public function me(Request $request)
+    {
+        return response()->json([
+            'success' => true,
+            'data'    => $this->formatUser($request->user()),
+        ]);
+    }
+
+    // =========================================================================
+    // GOOGLE OAUTH
+    // =========================================================================
+
+    /**
+     * Bước 1: Chuyển hướng người dùng đến Google để xác thực.
+     */
+    public function redirectToGoogle()
+    {
+        try {
+            $clientId = config('services.google.client_id');
+            $clientSecret = config('services.google.client_secret');
+            $redirectUri = config('services.google.redirect');
+
+            if (!$clientId || !$clientSecret || !$redirectUri) {
+                Log::error('Google OAuth config missing', compact('clientId', 'clientSecret', 'redirectUri'));
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Thiếu cấu hình Google OAuth. Vui lòng kiểm tra GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI.',
+                ], 500);
+            }
+
+            /** @phpstan-ignore-next-line */
+            /** @psalm-suppress UndefinedMethod */
+            /** @noinspection PhpUndefinedMethodInspection */
+            $url = Socialite::driver('google')
+                ->stateless()
+                ->redirect()
+                ->getTargetUrl();
+
+            return response()->json([
+                'success' => true,
+                'url'     => $url,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Google redirect failed: ' . $e->getMessage(), ['exception' => $e]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể kết nối tới Google. Vui lòng kiểm tra cấu hình GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Bước 2: Google callback — tạo/cập nhật user và trả về token.
+     */
+    public function handleGoogleCallback(Request $request)
+    {
+        try {
+            /** @phpstan-ignore-next-line */
+            /** @psalm-suppress UndefinedMethod */
+            /** @noinspection PhpUndefinedMethodInspection */
+            $googleUser = Socialite::driver('google')->stateless()->user();
+        } catch (\Exception $e) {
+            Log::error('Google callback failed: ' . $e->getMessage(), ['exception' => $e]);
+            return $this->redirectToFrontendWithError('Xác thực Google thất bại. Vui lòng thử lại.');
+        }
+
+        // Tìm user theo google_id hoặc email
+        $user = User::where('google_id', $googleUser->getId())
+            ->orWhere('email', $googleUser->getEmail())
+            ->first();
+
+        $isNewUser = false;
+
+        if ($user) {
+            // Cập nhật thông tin Google nếu chưa có
+            if (!$user->google_id) {
+                $user->update([
+                    'google_id' => $googleUser->getId(),
+                    'avatar'    => $googleUser->getAvatar(),
+                    'provider'  => 'google',
+                ]);
+            }
+        } else {
+            // Tạo user mới từ Google
+            $isNewUser = true;
+            $user = User::create([
+                'fullname'  => $googleUser->getName(),
+                'phone'     => '',  
+                'email'     => $googleUser->getEmail(),
+                'google_id' => $googleUser->getId(),
+                'avatar'    => $googleUser->getAvatar(),
+                'password'  => Hash::make(Str::random(32)), // random password
+                'provider'  => 'google',
+                'role'      => 0, // 0 = user, 1 = admin
+            ]);
+
+            // Gửi email chào mừng khi đăng ký qua Google
+            try {
+                Mail::to($user->email)->send(new RegisterSuccessMail($user));
+            } catch (\Exception $e) {
+                Log::warning('Không thể gửi email chào mừng Google: ' . $e->getMessage());
+            }
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        // Redirect về frontend kèm token
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+        $redirectUrl = $frontendUrl . '/auth/google/callback'
+            . '?token=' . urlencode($token)
+            . '&user=' . urlencode(json_encode($this->formatUser($user)))
+            . '&is_new=' . ($isNewUser ? '1' : '0');
+
+        return redirect($redirectUrl);
     }
 
     // ─── QUÊN MẬT KHẨU: GỬI OTP ─────────────────────────────────────────────
@@ -226,5 +373,11 @@ class AuthController extends Controller
             'role'     => $user->role,
             'status'   => $user->status,
         ];
+    }
+
+    private function redirectToFrontendWithError(string $message): \Illuminate\Http\RedirectResponse
+    {
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+        return redirect($frontendUrl . '/login?error=' . urlencode($message));
     }
 }
