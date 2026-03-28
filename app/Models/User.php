@@ -24,6 +24,15 @@ class User extends Model
         'otp',
         'otp_time',
         'password',
+        'google_id',
+        'avatar',
+        'provider',
+        'name',
+    ];
+
+    protected $casts = [
+        'role' => 'integer',
+        'status' => 'integer',
     ];
 
     protected $hidden = [
