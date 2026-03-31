@@ -7,6 +7,16 @@ use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
+    public function publicIndex()
+    {
+        // Lấy tất cả danh mục kèm children (1 cấp)
+        $categories = Category::with('children')
+            ->whereNull('parent_id')
+            ->orderBy('id')
+            ->get();
+ 
+        return response()->json($categories);
+    }
     public function index()
     {
         $categories = Category::all();
