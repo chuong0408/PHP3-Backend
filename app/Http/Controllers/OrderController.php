@@ -1,0 +1,178 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Order;
+use App\Models\OrderDetail;
+use App\Models\ProductSku;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class OrderController extends Controller
+{
+    /**
+     * POST /api/user/orders
+     * Đặt hàng COD (hoặc phương thức khác).
+     * Yêu cầu đăng nhập (auth:sanctum).
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'email'            => 'required|email|max:255',
+            'phone'            => 'required|string|max:20',
+            'address'          => 'required|string|max:500',
+            'payment'          => 'required|string|in:cod,banking,momo,vnpay',
+            'items'            => 'required|array|min:1',
+            'items.*.product_sku_code' => 'required|string|exists:product_skus,sku_code',
+            'items.*.quantity'         => 'required|integer|min:1',
+        ], [
+            'email.required'   => 'Vui lòng nhập email.',
+            'phone.required'   => 'Vui lòng nhập số điện thoại.',
+            'address.required' => 'Vui lòng nhập địa chỉ giao hàng.',
+            'payment.in'       => 'Phương thức thanh toán không hợp lệ.',
+            'items.required'   => 'Giỏ hàng trống.',
+            'items.*.product_sku_code.exists' => 'Sản phẩm không tồn tại.',
+            'items.*.quantity.min'            => 'Số lượng phải ít nhất là 1.',
+        ]);
+
+        $user = $request->user();
+
+        // Tính tổng tiền và kiểm tra tồn kho
+        $total      = 0;
+        $skuObjects = [];
+
+        foreach ($request->items as $item) {
+            $sku = ProductSku::where('sku_code', $item['product_sku_code'])
+                             ->where('status', 'active')
+                             ->first();
+
+            if (! $sku) {
+                return response()->json([
+                    'message' => "Sản phẩm SKU [{$item['product_sku_code']}] không còn hoạt động.",
+                ], 422);
+            }
+
+            if ($sku->quantity < $item['quantity']) {
+                return response()->json([
+                    'message' => "Sản phẩm [{$sku->sku_code}] chỉ còn {$sku->quantity} trong kho.",
+                ], 422);
+            }
+
+            $total += (float) $sku->price * (int) $item['quantity'];
+            $skuObjects[] = ['sku' => $sku, 'quantity' => (int) $item['quantity']];
+        }
+
+        // Tính phí ship (miễn phí nếu >= 5 triệu)
+        $shippingFee = $total >= 5_000_000 ? 0 : 30_000;
+        $total      += $shippingFee;
+
+        // Tạo đơn hàng trong transaction
+        DB::beginTransaction();
+        try {
+            $order = Order::create([
+                'user_id'    => $user->id,
+                'email'      => $request->email,
+                'phone'      => $request->phone,
+                'address'    => $request->address,
+                'total'      => $total,
+                'payment'    => $request->payment,
+                'status'     => 'pending',
+                'created_at' => now(),
+            ]);
+
+            foreach ($skuObjects as $entry) {
+                OrderDetail::create([
+                    'orders_id'        => $order->id,
+                    'product_sku_code' => $entry['sku']->sku_code,
+                    'quantity'         => $entry['quantity'],
+                ]);
+
+                // Trừ tồn kho
+                $entry['sku']->decrement('quantity', $entry['quantity']);
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Đặt hàng thất bại, vui lòng thử lại. ' . $e->getMessage(),
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'Đặt hàng thành công!',
+            'order'   => $this->formatOrder($order->load('details.sku')),
+        ], 201);
+    }
+
+    /**
+     * GET /api/user/orders
+     * Lấy lịch sử đơn hàng của user đang đăng nhập.
+     */
+    public function index(Request $request)
+    {
+        $user   = $request->user();
+        $orders = Order::with(['details.sku.product'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->paginate(10);
+
+        $orders->getCollection()->transform(fn($o) => $this->formatOrder($o));
+
+        return response()->json($orders);
+    }
+
+    /**
+     * GET /api/user/orders/{id}
+     * Chi tiết 1 đơn hàng (chỉ của user đó).
+     */
+    public function show(Request $request, $id)
+    {
+        $user  = $request->user();
+        $order = Order::with(['details.sku.product'])
+            ->where('user_id', $user->id)
+            ->findOrFail($id);
+
+        return response()->json($this->formatOrder($order));
+    }
+
+    // ── Helper ────────────────────────────────────────────────────────────────
+
+    private function formatOrder(Order $order): array
+    {
+        $base = rtrim(env('APP_URL', 'http://localhost:8000'), '/');
+
+        $items = $order->details->map(function ($detail) use ($base) {
+            $sku     = $detail->sku;
+            $product = $sku?->product;
+
+            $imageUrl = null;
+            if ($product?->image_url) {
+                $imageUrl = str_starts_with($product->image_url, 'http')
+                    ? $product->image_url
+                    : $base . '/storage/' . $product->image_url;
+            }
+
+            return [
+                'id'               => $detail->id,
+                'product_sku_code' => $detail->product_sku_code,
+                'quantity'         => $detail->quantity,
+                'price'            => $sku ? (float) $sku->price : null,
+                'product_name'     => $product?->name,
+                'product_image'    => $imageUrl,
+            ];
+        });
+
+        return [
+            'id'         => $order->id,
+            'email'      => $order->email,
+            'phone'      => $order->phone,
+            'address'    => $order->address,
+            'total'      => $order->total,
+            'payment'    => $order->payment,
+            'status'     => $order->status,
+            'created_at' => $order->created_at?->toDateTimeString(),
+            'items'      => $items,
+        ];
+    }
+}
