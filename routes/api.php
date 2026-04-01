@@ -24,8 +24,11 @@ Route::prefix('admin')->group(function () {
 
     // ── CRUD Mã Giảm Giá ──────────────────────────────────────────────────────
     Route::apiResource('coupons', CouponController::class);
-    Route::patch('coupons/{coupon}/toggle-status', [CouponController::class, 'toggleStatus']);
+    Route::post('coupons/{coupon}/use', [CouponController::class, 'markUsed']);
+
 });
+
+Route::post('/apply-coupon', [CouponController::class, 'apply']);
 
 Route::prefix('auth')->group(function () {
 
