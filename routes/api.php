@@ -10,6 +10,7 @@ use App\Http\Controllers\BannerController;
 use App\Http\Controllers\CouponController;
 
 Route::prefix('admin')->group(function () {
+    Route::delete('products/images/{image}', [ProductController::class, 'destroyImage']); // ← lên trước
     Route::apiResource('products',   ProductController::class);
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('brands',     BrandController::class);

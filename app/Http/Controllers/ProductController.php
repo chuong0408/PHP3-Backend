@@ -4,30 +4,54 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductImg;
+use App\Models\ProductSku;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
+    // ── Helper: thêm base URL cho ảnh ────────────────────────────────────────
+    private function appendImageUrls(Product $product): void
+    {
+        $base = rtrim(env('APP_URL', 'http://localhost:8000'), '/');
+
+        $product->images->each(function ($img) use ($base) {
+            if ($img->url && !str_starts_with($img->url, 'http')) {
+                $img->url = $base . '/storage/' . $img->url;
+            }
+        });
+
+        if ($product->image_url && !str_starts_with($product->image_url, 'http')) {
+            $product->image_url = $base . '/storage/' . $product->image_url;
+        }
+    }
+
+    // ── GET /api/admin/products ───────────────────────────────────────────────
     public function index()
     {
-        $products = Product::with(['category', 'brand', 'images'])->get();
+        $products = Product::with(['category', 'brand', 'images', 'skus'])->get();
 
-        // Thêm base URL cho ảnh
-        $base = rtrim(env('APP_URL', 'http://localhost:8000'), '/');
-        $products->each(function ($product) use ($base) {
-            $product->images->each(function ($img) use ($base) {
-                $img->url = $base . '/storage/' . $img->url;
-            });
-            if ($product->image_url) {
-                $product->image_url = $base . '/storage/' . $product->image_url;
+        $products->each(function ($p) {
+            $this->appendImageUrls($p);
+
+            if ($p->skus->isNotEmpty()) {
+                // Tổng hợp tất cả SKU
+                $p->stock     = $p->skus->sum('quantity');
+                $p->min_price = $p->skus->min('price');
+                $p->max_price = $p->skus->max('price');
+                $p->sku_count = $p->skus->count();
+            } else {
+                $p->stock     = 0;
+                $p->min_price = null;
+                $p->max_price = null;
+                $p->sku_count = 0;
             }
         });
 
         return response()->json($products);
     }
 
+    // ── POST /api/admin/products ──────────────────────────────────────────────
     public function store(Request $request)
     {
         $request->validate([
@@ -35,11 +59,14 @@ class ProductController extends Controller
             'categories_id' => 'required|exists:categories,id',
             'brand_id'      => 'nullable|exists:brands,id',
             'description'   => 'nullable|string',
-            'price'         => 'nullable|numeric|min:0',
-            'sku'           => 'nullable|string|max:100',
-            'status'        => 'nullable|in:active,draft,hidden',
-            'is_featured'   => 'nullable|boolean',
             'images.*'      => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+
+            // SKU validation
+            'skus'                  => 'nullable|array',
+            'skus.*.sku_code'       => 'required_with:skus|string|max:255|distinct',
+            'skus.*.price'          => 'required_with:skus|numeric|min:0',
+            'skus.*.quantity'       => 'required_with:skus|integer|min:0',
+            'skus.*.status'         => 'nullable|in:active,draft,hidden',
         ]);
 
         $product = Product::create([
@@ -50,7 +77,7 @@ class ProductController extends Controller
             'image_url'     => '',
         ]);
 
-        // Lưu ảnh vào product_img
+        // Lưu ảnh
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $index => $file) {
                 $path = $file->store('products', 'public');
@@ -61,31 +88,41 @@ class ProductController extends Controller
                     'mota'       => $index === 0 ? 'Ảnh chính' : 'Ảnh ' . ($index + 1),
                 ]);
 
-                // Ảnh đầu tiên là ảnh đại diện
                 if ($index === 0) {
                     $product->update(['image_url' => $path]);
                 }
             }
         }
 
-        return response()->json($product->load('images'), 201);
+        // Lưu SKUs
+        if ($request->filled('skus')) {
+            foreach ($request->skus as $skuData) {
+                ProductSku::create([
+                    'sku_code'   => $skuData['sku_code'],
+                    'product_id' => $product->id,
+                    'price'      => $skuData['price'],
+                    'quantity'   => $skuData['quantity'],
+                    'status'     => $skuData['status'] ?? 'active',
+                ]);
+            }
+        }
+
+        $product->load(['category', 'brand', 'images', 'skus']);
+        $this->appendImageUrls($product);
+
+        return response()->json($product, 201);
     }
 
+    // ── GET /api/admin/products/:id ───────────────────────────────────────────
     public function show(Product $product)
     {
-        $product->load(['category', 'brand', 'images']);
-
-        $base = rtrim(env('APP_URL', 'http://localhost:8000'), '/');
-        $product->images->each(function ($img) use ($base) {
-            $img->url = $base . '/storage/' . $img->url;
-        });
-        if ($product->image_url) {
-            $product->image_url = $base . '/storage/' . $product->image_url;
-        }
+        $product->load(['category', 'brand', 'images', 'skus']);
+        $this->appendImageUrls($product);
 
         return response()->json($product);
     }
 
+    // ── POST /api/admin/products/:id (với _method=PUT) ────────────────────────
     public function update(Request $request, Product $product)
     {
         $request->validate([
@@ -93,11 +130,14 @@ class ProductController extends Controller
             'categories_id' => 'required|exists:categories,id',
             'brand_id'      => 'nullable|exists:brands,id',
             'description'   => 'nullable|string',
-            'price'         => 'nullable|numeric|min:0',
-            'sku'           => 'nullable|string|max:100',
-            'status'        => 'nullable|in:active,draft,hidden',
-            'is_featured'   => 'nullable|boolean',
             'images.*'      => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+
+            // SKU validation
+            'skus'                  => 'nullable|array',
+            'skus.*.sku_code'       => 'required_with:skus|string|max:255|distinct',
+            'skus.*.price'          => 'required_with:skus|numeric|min:0',
+            'skus.*.quantity'       => 'required_with:skus|integer|min:0',
+            'skus.*.status'         => 'nullable|in:active,draft,hidden',
         ]);
 
         $product->update([
@@ -107,7 +147,7 @@ class ProductController extends Controller
             'description'   => $request->description ?? '',
         ]);
 
-        // Thêm ảnh mới nếu có upload
+        // Thêm ảnh mới nếu có
         if ($request->hasFile('images')) {
             $currentCount = $product->images()->count();
 
@@ -120,31 +160,67 @@ class ProductController extends Controller
                     'mota'       => 'Ảnh ' . ($currentCount + $index + 1),
                 ]);
 
-                // Nếu chưa có ảnh đại diện thì set ảnh đầu tiên
+                // Nếu chưa có ảnh nào thì set ảnh đầu tiên làm ảnh chính
                 if ($currentCount === 0 && $index === 0) {
                     $product->update(['image_url' => $path]);
                 }
             }
         }
 
-        return response()->json($product->load('images'));
+        // Cập nhật SKUs: xóa SKU không còn trong danh sách mới, upsert các SKU mới
+        if ($request->has('skus')) {
+            $newSkuCodes = collect($request->skus)->pluck('sku_code')->toArray();
+
+            // Xóa SKU không còn trong danh sách mới
+            $product->skus()->whereNotIn('sku_code', $newSkuCodes)->delete();
+
+            foreach ($request->skus as $skuData) {
+                ProductSku::updateOrCreate(
+                    ['sku_code' => $skuData['sku_code']],
+                    [
+                        'product_id' => $product->id,
+                        'price'      => $skuData['price'],
+                        'quantity'   => $skuData['quantity'],
+                        'status'     => $skuData['status'] ?? 'active',
+                    ]
+                );
+            }
+        } else {
+            // Nếu không gửi skus thì xóa hết SKU cũ
+            $product->skus()->delete();
+        }
+
+        $product->load(['category', 'brand', 'images', 'skus']);
+        $this->appendImageUrls($product);
+
+        return response()->json($product);
     }
 
+    // ── DELETE /api/admin/products/:id ────────────────────────────────────────
     public function destroy(Product $product)
     {
         // Xóa ảnh trong storage
         foreach ($product->images as $img) {
-            Storage::disk('public')->delete($img->url); // ← bỏ dấu \ ở đầu
+            Storage::disk('public')->delete($img->url);
         }
+
+        // Xóa SKUs
+        $product->skus()->delete();
+
+        // Xóa product_imgs
+        $product->images()->delete();
+
         $product->delete();
+
         return response()->json(['message' => 'Xóa thành công!']);
     }
 
-    // Xóa 1 ảnh riêng lẻ
+    // ── DELETE /api/admin/products/images/:image ──────────────────────────────
     public function destroyImage(ProductImg $image)
     {
         Storage::disk('public')->delete($image->url);
         $image->delete();
+
         return response()->json(['message' => 'Xóa ảnh thành công!']);
     }
 }
