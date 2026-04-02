@@ -18,7 +18,7 @@ class CouponController extends Controller
             $s = $request->search;
             $query->where(function ($q) use ($s) {
                 $q->where('coupon_code', 'like', "%$s%")
-                  ->orWhere('description', 'like', "%$s%");
+                    ->orWhere('description', 'like', "%$s%");
             });
         }
 
@@ -35,8 +35,10 @@ class CouponController extends Controller
             'discount'      => 'required|string|max:10',
             'description'   => 'required|string|max:255',
             'minordervalue' => 'nullable|numeric|min:0',
+            'expires_at'    => 'nullable|date|after:now',
         ], [
             'coupon_code.unique' => 'Mã giảm giá này đã tồn tại.',
+            'expires_at.after'   => 'Ngày hết hạn phải sau thời điểm hiện tại.',
         ]);
 
         $coupon = Coupon::create([
@@ -44,6 +46,7 @@ class CouponController extends Controller
             'discount'      => $request->discount,
             'description'   => $request->description,
             'minordervalue' => $request->minordervalue ?? 0,
+            'expires_at'    => $request->expires_at ?? null,
         ]);
 
         return response()->json($coupon, 201);
@@ -65,12 +68,14 @@ class CouponController extends Controller
             'discount'      => 'required|string|max:10',
             'description'   => 'required|string|max:255',
             'minordervalue' => 'nullable|numeric|min:0',
+            'expires_at'    => 'nullable|date',
         ]);
 
         $coupon->update([
             'discount'      => $request->discount,
             'description'   => $request->description,
             'minordervalue' => $request->minordervalue ?? 0,
+            'expires_at'    => $request->expires_at ?? null,
         ]);
 
         return response()->json($coupon->fresh());
@@ -96,6 +101,10 @@ class CouponController extends Controller
 
         if (!$coupon) {
             return response()->json(['message' => 'Mã giảm giá không tồn tại.'], 422);
+        }
+
+        if ($coupon->isExpired()) {
+            return response()->json(['message' => 'Mã giảm giá đã hết hạn.'], 422);
         }
 
         if ($request->order_total < $coupon->minordervalue) {
@@ -137,8 +146,8 @@ class CouponController extends Controller
         Coupon::findOrFail($coupon_code);
 
         $already = CouponUsage::where('coupon_code', $coupon_code)
-                               ->where('user_id', $request->user_id)
-                               ->exists();
+            ->where('user_id', $request->user_id)
+            ->exists();
 
         if ($already) {
             return response()->json(['message' => 'User này đã dùng mã rồi.'], 422);

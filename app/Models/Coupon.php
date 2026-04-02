@@ -19,11 +19,20 @@ class Coupon extends Model
         'discount',
         'description',
         'minordervalue',
+        'expires_at',
+        'is_birthday_coupon',
     ];
 
     protected $casts = [
         'minordervalue' => 'float',
+        'expires_at'         => 'datetime',
+        'is_birthday_coupon' => 'boolean',
     ];
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
 
     // Quan hệ: một mã có thể được dùng bởi nhiều user
     public function usages()
