@@ -5,10 +5,10 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\BannerController;
-use App\Http\Controllers\CouponController;
+use App\Http\Controllers\CartController;
+use App\Http\Controllers\OrderController;
 
+// ── ADMIN ─────────────────────────────────────────────────────────────────────
 Route::prefix('admin')->group(function () {
     Route::delete('products/images/{image}', [ProductController::class, 'destroyImage']); // ← lên trước
     Route::apiResource('products',   ProductController::class);
@@ -32,20 +32,18 @@ Route::prefix('admin')->group(function () {
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
 
 Route::prefix('auth')->group(function () {
-
-    // Đăng ký / Đăng nhập thường
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login',    [AuthController::class, 'login']);
 
     // Google OAuth
-    Route::get('/google/redirect',  [AuthController::class, 'redirectToGoogle']);
-    Route::get('/google/callback',  [AuthController::class, 'handleGoogleCallback']);
+    Route::get('/google/redirect', [AuthController::class, 'redirectToGoogle']);
+    Route::get('/google/callback', [AuthController::class, 'handleGoogleCallback']);
 
-    Route::post('/send-otp',      [AuthController::class, 'sendOtp']);
-    Route::post('/verify-otp',    [AuthController::class, 'verifyOtp']);
+    Route::post('/send-otp',       [AuthController::class, 'sendOtp']);
+    Route::post('/verify-otp',     [AuthController::class, 'verifyOtp']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-    // Đăng xuất / thông tin user (cần token)
+    // Cần token
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me',      [AuthController::class, 'me']);
