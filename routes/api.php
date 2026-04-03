@@ -31,6 +31,9 @@ Route::prefix('admin')->group(function () {
 
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
 
+Route::get('/brands',     [BrandController::class,   'index']);
+Route::get('/categories', [CategoryController::class, 'index']);
+
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login',    [AuthController::class, 'login']);
