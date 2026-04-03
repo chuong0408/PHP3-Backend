@@ -109,7 +109,7 @@ class AuthController extends Controller
         if (!Hash::check($request->password, $user->password)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Mật khẩu không chính xác.',
+                'message' => 'Email Hoặc mật khẩu không chính xác.',
             ], 401);
         }
 
@@ -131,6 +131,7 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Đăng xuất thành công.']);
+        
     }
 
     // LẤY THÔNG TIN USER HIỆN TẠI
