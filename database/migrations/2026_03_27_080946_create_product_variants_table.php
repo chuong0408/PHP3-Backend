@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('variant_name', 255);
             $table->unsignedBigInteger('product_id');
-            $table->dateTime('created_at');
+            $table->timestamp('created_at')->useCurrent();
 
             $table->foreign('product_id')
                   ->references('id')

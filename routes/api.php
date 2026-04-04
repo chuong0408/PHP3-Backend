@@ -7,6 +7,10 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\VariantController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\BannerController;
+use App\Http\Controllers\CouponController;
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 Route::prefix('admin')->group(function () {
@@ -20,13 +24,26 @@ Route::prefix('admin')->group(function () {
     Route::patch('users/{user}/toggle-status', [UserController::class, 'toggleStatus']);
 
     // ── CRUD Banner ────────────────────────────────────────────────────────────
-    Route::apiResource('banners', BannerController::class);
-    Route::patch('banners/{banner}/toggle-status', [BannerController::class, 'toggleStatus']);
+    // Route::apiResource('banners', BannerController::class);
+    // Route::patch('banners/{banner}/toggle-status', [BannerController::class, 'toggleStatus']);
 
     // ── CRUD Mã Giảm Giá ──────────────────────────────────────────────────────
     Route::apiResource('coupons', CouponController::class);
     Route::post('coupons/{coupon}/use', [CouponController::class, 'markUsed']);
+    // Variant CRUD theo product
+    Route::get('products/{productId}/variants', [VariantController::class, 'index']);
+    Route::post('products/{productId}/variants', [VariantController::class, 'store']);
+    Route::put('variants/{variantId}',          [VariantController::class, 'update']);
+    Route::delete('variants/{variantId}',          [VariantController::class, 'destroy']);
 
+    // Option CRUD
+    Route::post('variants/{variantId}/options',  [VariantController::class, 'storeOption']);
+    Route::delete('options/{optionId}',            [VariantController::class, 'destroyOption']);
+
+    // Combinations (gán option ↔ SKU)
+    Route::get('products/{productId}/combinations', [VariantController::class, 'getCombinations']);
+    Route::post('combinations',                      [VariantController::class, 'storeCombination']);
+    Route::delete('combinations/{id}',                 [VariantController::class, 'destroyCombination']);
 });
 
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
