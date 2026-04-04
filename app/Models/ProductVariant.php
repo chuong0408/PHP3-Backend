@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProductVariant extends Model
 {
-    protected $table    = 'product_variants';
-    public $timestamps  = false; // chỉ có created_at, không có updated_at
+    protected $table = 'product_variants';
+    const UPDATED_AT = null; // ← đổi từ public $timestamps = false
 
     protected $fillable = ['variant_name', 'product_id'];
 
@@ -29,15 +29,11 @@ class ProductVariant extends Model
 
 
 // ────────────────────────────────────────────────────────────────────────────
-// ── app/Models/VariantOption.php ──────────────────────────────────────────────
-
-// namespace App\Models;
-// use Illuminate\Database\Eloquent\Model;
 
 class VariantOption extends Model
 {
-    protected $table   = 'variant_options';
-    public $timestamps = false;
+    protected $table = 'variant_options';
+    const UPDATED_AT = null; // ← đổi từ public $timestamps = false
 
     protected $fillable = ['product_variant_id', 'option_values'];
 
@@ -58,15 +54,11 @@ class VariantOption extends Model
 
 
 // ────────────────────────────────────────────────────────────────────────────
-// ── app/Models/ProductCombinationOption.php ───────────────────────────────────
-
-// namespace App\Models;
-// use Illuminate\Database\Eloquent\Model;
 
 class ProductCombinationOption extends Model
 {
-    protected $table   = 'product_combination_options';
-    public $timestamps = false;
+    protected $table = 'product_combination_options';
+    const UPDATED_AT = null; // ← đổi từ public $timestamps = false
 
     protected $fillable = ['options_id', 'sku_code'];
 
