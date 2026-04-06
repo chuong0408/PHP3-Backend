@@ -9,7 +9,6 @@ class User extends Authenticatable
 {
     use HasApiTokens;
 
-    // Bảng trong DB tên là "user" (không phải "users")
     protected $table = 'user';
 
     protected $fillable = [
