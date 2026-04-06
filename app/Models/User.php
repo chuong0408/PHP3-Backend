@@ -2,14 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Model
+class User extends Authenticatable
 {
     use HasApiTokens;
 
-    // Bảng trong DB tên là "user" (không phải "users")
     protected $table = 'user';
 
     protected $fillable = [
@@ -31,7 +30,7 @@ class User extends Model
     ];
 
     protected $casts = [
-        'role' => 'integer',
+        'role'   => 'integer',
         'status' => 'integer',
     ];
 
@@ -40,6 +39,5 @@ class User extends Model
         'otp',
     ];
 
-    // Tắt timestamps tự động vì bảng user không có created_at / updated_at chuẩn Laravel
     public $timestamps = false;
 }
