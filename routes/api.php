@@ -11,6 +11,7 @@ use App\Http\Controllers\VariantController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\CouponController;
+use App\Http\Controllers\AdminOrderController;
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 Route::prefix('admin')->group(function () {
@@ -44,6 +45,11 @@ Route::prefix('admin')->group(function () {
     Route::get('products/{productId}/combinations', [VariantController::class, 'getCombinations']);
     Route::post('combinations',                      [VariantController::class, 'storeCombination']);
     Route::delete('combinations/{id}',                 [VariantController::class, 'destroyCombination']);
+
+    // ── Orders ────────────────────────────────────────────────────────────────
+    Route::get('orders',                 [AdminOrderController::class, 'index']);
+    Route::get('orders/{id}',            [AdminOrderController::class, 'show']);
+    Route::patch('orders/{id}/status',   [AdminOrderController::class, 'updateStatus']);
 });
 
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
