@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\OrderSuccessMail;
 use App\Models\Order;
 use App\Models\OrderDetail;
 use App\Models\ProductSku;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -99,9 +102,31 @@ class OrderController extends Controller
             ], 500);
         }
 
+        // Load order với details để format và gửi email
+        $order->load('details.sku.product');
+        $formatted = $this->formatOrder($order);
+
+        // Tính subtotal & shippingFee để hiển thị trong email
+        $subtotal    = collect($formatted['items'])->sum(fn($i) => ($i['price'] ?? 0) * $i['quantity']);
+        $shippingFee = $subtotal >= 5_000_000 ? 0 : 30_000;
+
+        // Gửi email xác nhận đặt hàng (không chặn response nếu lỗi mail)
+        try {
+            Mail::to($user->email)->send(new OrderSuccessMail(
+                order:       $order,
+                user:        $user,
+                items:       $formatted['items'],
+                subtotal:    $subtotal,
+                shippingFee: $shippingFee,
+            ));
+        } catch (\Throwable $mailErr) {
+            // Log lỗi mail nhưng không fail request
+            Log::warning('Không thể gửi email đặt hàng: ' . $mailErr->getMessage());
+        }
+
         return response()->json([
             'message' => 'Đặt hàng thành công!',
-            'order'   => $this->formatOrder($order->load('details.sku')),
+            'order'   => $formatted,
         ], 201);
     }
 
@@ -134,6 +159,38 @@ class OrderController extends Controller
             ->findOrFail($id);
 
         return response()->json($this->formatOrder($order));
+    }
+
+    /**
+     * PATCH /api/user/orders/{id}/cancel
+     * Huỷ đơn hàng (chỉ khi status = pending).
+     */
+    public function cancel(Request $request, $id)
+    {
+        $user  = $request->user();
+        $order = Order::where('user_id', $user->id)->findOrFail($id);
+
+        if ($order->status !== 'pending') {
+            return response()->json([
+                'message' => 'Chỉ có thể huỷ đơn hàng đang chờ xác nhận.',
+            ], 422);
+        }
+
+        // Hoàn trả tồn kho
+        foreach ($order->details as $detail) {
+            $sku = ProductSku::where('sku_code', $detail->product_sku_code)->first();
+            if ($sku) {
+                $sku->increment('quantity', $detail->quantity);
+            }
+        }
+
+        $order->status = 'cancelled';
+        $order->save();
+
+        return response()->json([
+            'message' => 'Huỷ đơn hàng thành công.',
+            'order'   => $this->formatOrder($order->load('details.sku')),
+        ]);
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
