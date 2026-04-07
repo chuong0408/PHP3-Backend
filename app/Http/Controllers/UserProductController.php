@@ -53,7 +53,7 @@ class UserProductController extends Controller
             // Lấy giá từ SKU đầu tiên có status = active
             // Nếu không có active thì lấy SKU đầu tiên bất kỳ
             $firstSku = $product->skus->where('status', 'active')->first()
-                     ?? $product->skus->first();
+                ?? $product->skus->first();
 
             $product->price     = $firstSku ? (float) $firstSku->price    : null;
             $product->quantity  = $firstSku ? (int)   $firstSku->quantity  : 0;
@@ -74,25 +74,47 @@ class UserProductController extends Controller
      */
     public function show($id)
     {
-        $product = Product::with(['category', 'brand', 'images', 'skus'])
-            ->findOrFail($id);
+        $product = Product::with([
+            'category',
+            'brand',
+            'images',
+            'skus',
+            'variants.options.combinations', // load variants → options → combinations (sku_code)
+        ])->findOrFail($id);
 
         $base = rtrim(env('APP_URL', 'http://localhost:8000'), '/');
 
         // Fix ảnh đại diện
-        if ($product->image_url) {
+        if ($product->image_url && !str_starts_with($product->image_url, 'http')) {
             $product->image_url = $base . '/storage/' . $product->image_url;
         }
 
         // Fix ảnh gallery
         $product->images->each(function ($img) use ($base) {
-            $img->url = $base . '/storage/' . $img->url;
+            if ($img->url && !str_starts_with($img->url, 'http')) {
+                $img->url = $base . '/storage/' . $img->url;
+            }
         });
 
-        // Lấy giá thấp nhất trong các SKU active
+        // Tính giá thấp nhất từ SKU active
         $activeSku = $product->skus->where('status', 'active');
         $product->price    = $activeSku->min('price');
         $product->quantity = $activeSku->sum('quantity');
+
+        // Xây dựng combination_map: { "option_id": "sku_code", ... }
+        // Để frontend biết option nào map với sku nào
+        $combinationMap = [];
+        foreach ($product->variants as $variant) {
+            foreach ($variant->options as $option) {
+                foreach ($option->combinations as $combo) {
+                    $combinationMap[] = [
+                        'option_id' => $option->id,
+                        'sku_code'  => $combo->sku_code,
+                    ];
+                }
+            }
+        }
+        $product->combination_map = $combinationMap;
 
         return response()->json($product);
     }
