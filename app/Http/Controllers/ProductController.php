@@ -26,6 +26,44 @@ class ProductController extends Controller
         }
     }
 
+    // ── GET /api/products (public, hỗ trợ search/filter) ─────────────────────
+    public function publicIndex(Request $request)
+    {
+        $query = Product::with(['category', 'brand', 'images', 'skus']);
+
+        // Tìm kiếm theo tên
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        // Lọc theo danh mục
+        if ($request->filled('category_id')) {
+            $query->where('categories_id', $request->category_id);
+        }
+
+        // Lọc theo thương hiệu
+        if ($request->filled('brand_id')) {
+            $query->where('brand_id', $request->brand_id);
+        }
+
+        $perPage = min((int) $request->get('per_page', 48), 100);
+        $products = $query->latest()->take($perPage)->get();
+
+        $products->each(function ($p) {
+            $this->appendImageUrls($p);
+            if ($p->skus->isNotEmpty()) {
+                $p->price     = $p->skus->min('price');
+                $p->old_price = null;
+                $p->stock     = $p->skus->sum('quantity');
+            } else {
+                $p->price = $p->price ?? 0;
+                $p->stock = 0;
+            }
+        });
+
+        return response()->json($products);
+    }
+
     // ── GET /api/admin/products ───────────────────────────────────────────────
     public function index()
     {

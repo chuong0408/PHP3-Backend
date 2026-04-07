@@ -13,6 +13,7 @@ use App\Http\Controllers\BannerController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\AdminOrderController;
 
+
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 Route::prefix('admin')->group(function () {
     Route::delete('products/images/{image}', [ProductController::class, 'destroyImage']); // ← lên trước
@@ -53,6 +54,11 @@ Route::prefix('admin')->group(function () {
 });
 
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
+
+Route::get('/products',   [ProductController::class, 'publicIndex']);
+Route::get('/brands',     [BrandController::class,   'index']);
+Route::get('/categories', [CategoryController::class, 'index']);
+Route::post('/ai/chat', [AiChatController::class, 'chat']);
 
 Route::get('/brands',     [BrandController::class,   'index']);
 Route::get('/categories', [CategoryController::class, 'index']);
