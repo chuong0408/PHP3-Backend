@@ -12,6 +12,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\AdminOrderController;
+use App\Http\Controllers\SkuController;
 
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
@@ -51,11 +52,18 @@ Route::prefix('admin')->group(function () {
     Route::get('orders',                 [AdminOrderController::class, 'index']);
     Route::get('orders/{id}',            [AdminOrderController::class, 'show']);
     Route::patch('orders/{id}/status',   [AdminOrderController::class, 'updateStatus']);
+
+    // SKU riêng lẻ (CRUD)
+    Route::get('products/{productId}/skus',    [SkuController::class, 'index']);
+    Route::post('products/{productId}/skus',   [SkuController::class, 'store']);
+    Route::put('skus/{skuCode}',               [SkuController::class, 'update']);
+    Route::delete('skus/{skuCode}',            [SkuController::class, 'destroy']);
 });
 
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
 
 Route::get('/products',   [ProductController::class, 'publicIndex']);
+Route::get('/products/{id}',   [\App\Http\Controllers\UserProductController::class, 'show']);
 Route::get('/brands',     [BrandController::class,   'index']);
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::post('/ai/chat', [AiChatController::class, 'chat']);
