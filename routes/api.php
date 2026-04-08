@@ -13,6 +13,7 @@ use App\Http\Controllers\BannerController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\AdminOrderController;
 use App\Http\Controllers\SkuController;
+use App\Http\Controllers\VNPayController;
 
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
@@ -61,6 +62,12 @@ Route::prefix('admin')->group(function () {
 });
 
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
+
+// ── VNPay ──────────────────────────────────────────────────────────────────
+Route::get('/vnpay/callback', [VNPayController::class, 'callback']); // không cần auth (VNPay gọi)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/vnpay/create-payment', [VNPayController::class, 'createPayment']);
+});
 
 Route::get('/products',   [ProductController::class, 'publicIndex']);
 Route::get('/products/{id}',   [\App\Http\Controllers\UserProductController::class, 'show']);

@@ -218,7 +218,7 @@ class OrderController extends Controller
                 'product_name'     => $product?->name,
                 'product_image'    => $imageUrl,
             ];
-        });
+        })->toArray(); 
 
         return [
             'id'         => $order->id,
