@@ -20,6 +20,8 @@ class Order extends Model
         'payment',
         'status',
         'created_at',
+        'coupon_code',
+        'discount',
     ];
 
     protected $casts = [

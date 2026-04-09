@@ -43,6 +43,8 @@ class Coupon extends Model
     // Kiểm tra user đã dùng mã này chưa
     public function isUsedByUser(int $userId): bool
     {
-        return $this->usages()->where('user_id', $userId)->exists();
+        return $this->usages()->where('user_id', $userId)
+        ->whereNotNull('used_at')
+        ->exists();
     }
 }

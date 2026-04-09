@@ -5,6 +5,7 @@ use App\Http\Controllers\UserProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\CouponController;
 
 Route::get('/categories', [CategoryController::class, 'publicIndex']); // GET /api/categories
 
@@ -33,5 +34,9 @@ Route::middleware('auth:sanctum')->prefix('user')->group(function () {
     Route::post('/orders',         [OrderController::class, 'store']);   // POST /api/user/orders
     Route::get('/orders/{id}',    [OrderController::class, 'show']);    // GET  /api/user/orders/{id}
     Route::patch('/orders/{id}/cancel', [OrderController::class, 'cancel']); // PATCH /api/user/orders/{id}/cancel
+
+    // ── Mã giảm giá ──────────────────────────────────────────────────────────
+    Route::get('/my-coupons',     [CouponController::class, 'getMyCoupons']); // GET  /api/user/my-coupons
+    Route::post('/save-coupon',    [CouponController::class, 'saveCoupon']);  // POST /api/user/save-coupon
 
 });
