@@ -16,7 +16,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'address',
-        'brithday',
+        'birthday',
         'image',
         'role',
         'status',
@@ -40,4 +40,15 @@ class User extends Authenticatable
     ];
 
     public $timestamps = false;
+
+        // ── Relationships ──────────────────────────────────────────
+    public function shippingAddresses()
+    {
+        return $this->hasMany(ShippingAddress::class, 'user_id');
+    }
+ 
+    public function defaultAddress()
+    {
+        return $this->hasOne(ShippingAddress::class, 'user_id')->where('is_default', true);
+    }
 }

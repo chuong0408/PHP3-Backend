@@ -14,6 +14,7 @@ use App\Http\Controllers\CouponController;
 use App\Http\Controllers\AdminOrderController;
 use App\Http\Controllers\SkuController;
 use App\Http\Controllers\VNPayController;
+use App\Http\Controllers\ProfileController;
 
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
@@ -68,6 +69,18 @@ Route::get('/public/coupons', [CouponController::class, 'getPublicCoupons']);
 Route::get('/vnpay/callback', [VNPayController::class, 'callback']); // không cần auth (VNPay gọi)
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/vnpay/create-payment', [VNPayController::class, 'createPayment']);
+
+    // PROFILE
+    Route::get('/profile',                              [ProfileController::class, 'show']);
+    Route::post('/profile',                             [ProfileController::class, 'update']);
+    Route::post('/profile/change-password',             [ProfileController::class, 'changePassword']);
+
+    // ĐỊA CHỈ GIAO HÀNG
+    Route::get('/profile/addresses',                    [ProfileController::class, 'listAddresses']);
+    Route::post('/profile/addresses',                   [ProfileController::class, 'storeAddress']);
+    Route::put('/profile/addresses/{id}',               [ProfileController::class, 'updateAddress']);
+    Route::delete('/profile/addresses/{id}',            [ProfileController::class, 'deleteAddress']);
+    Route::patch('/profile/addresses/{id}/set-default', [ProfileController::class, 'setDefaultAddress']);
 });
 
 Route::get('/products',   [ProductController::class, 'publicIndex']);
