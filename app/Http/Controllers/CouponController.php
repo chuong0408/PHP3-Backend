@@ -145,19 +145,87 @@ class CouponController extends Controller
 
         Coupon::findOrFail($coupon_code);
 
-        $already = CouponUsage::where('coupon_code', $coupon_code)
+        $updated = CouponUsage::where('coupon_code', $coupon_code)
             ->where('user_id', $request->user_id)
-            ->exists();
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]);
 
-        if ($already) {
-            return response()->json(['message' => 'User này đã dùng mã rồi.'], 422);
+        if (!$updated) {
+            return response()->json(['message' => 'Mã chưa được lưu hoặc đã dùng rồi.'], 422);
         }
 
-        $usage = CouponUsage::create([
-            'user_id'     => $request->user_id,
-            'coupon_code' => $coupon_code,
-        ]);
+        return response()->json(['message' => 'Đánh dấu đã dùng thành công!']);
+    }
 
-        return response()->json($usage, 201);
+    // GET /api/public/coupons — tất cả mã còn hiệu lực (không cần đăng nhập)
+    public function getPublicCoupons()
+    {
+        $coupons = Coupon::where(function ($q) {
+            $q->whereNull('expires_at')
+                ->orWhere('expires_at', '>', now());
+        })
+            ->where('is_birthday_coupon', false)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json($coupons->map(function ($c) {
+            $d = $c->discount ?? '';
+            return [
+                'coupon_code'      => $c->coupon_code,
+                'description'      => $c->description,
+                'discount'         => $c->discount,
+                'discount_display' => str_ends_with($d, '%') ? "Giảm {$d}" : 'Giảm ' . number_format((float)$d, 0, ',', '.') . '₫',
+                'minordervalue'    => $c->minordervalue,
+                'expires_at'       => $c->expires_at?->toDateTimeString(),
+            ];
+        }));
+    }
+
+    // POST /api/user/save-coupon — user lưu mã
+    public function saveCoupon(Request $request)
+    {
+        $request->validate(['coupon_code' => 'required|string|max:255']);
+        $user   = $request->user();
+        $code   = strtoupper(trim($request->coupon_code));
+        $coupon = Coupon::where('coupon_code', $code)->first();
+
+        if (!$coupon) {
+            return response()->json(['message' => 'Mã giảm giá không tồn tại.'], 422);
+        }
+        if (CouponUsage::where('user_id', $user->id)->where('coupon_code', $code)->exists()) {
+            return response()->json(['message' => 'Bạn đã lưu mã này rồi.'], 422);
+        }
+
+        CouponUsage::create(['user_id' => $user->id, 'coupon_code' => $code]);
+        return response()->json(['message' => 'Lưu mã giảm giá thành công!'], 201);
+    }
+
+    // GET /api/user/my-coupons — danh sách mã đã lưu kèm trạng thái
+    public function getMyCoupons(Request $request)
+    {
+        $user   = $request->user();
+        $usages = CouponUsage::where('user_id', $user->id)->with('couponDetail')->get();
+
+        return response()->json($usages->map(function ($usage) use ($user) {
+            $c = $usage->couponDetail;
+            if (!$c) return null;
+
+            $isExpired = $c->isExpired();
+            $isUsed    = $c->isUsedByUser($user->id);
+            $d         = $c->discount ?? '';
+
+            return [
+                'coupon_code'      => $c->coupon_code,
+                'description'      => $c->description,
+                'discount'         => $c->discount,
+                'discount_display' => str_ends_with($d, '%') ? "Giảm {$d}" : 'Giảm ' . number_format((float)$d, 0, ',', '.') . '₫',
+                'minordervalue'    => $c->minordervalue,
+                'expires_at'       => $c->expires_at?->toDateTimeString(),
+                'status'           => $isUsed ? 'used' : ($isExpired ? 'expired' : 'active'),
+                'status_label'     => $isUsed ? 'Đã sử dụng' : ($isExpired ? 'Hết hạn' : 'Còn hiệu lực'),
+                'is_expired'       => $isExpired,
+                'is_used'          => $isUsed,
+            ];
+        })->filter()->values());
     }
 }

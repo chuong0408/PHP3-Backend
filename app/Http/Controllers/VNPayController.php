@@ -47,6 +47,21 @@ class VNPayController extends Controller
             $skuObjects[] = ['sku' => $sku, 'quantity' => (int) $item['quantity']];
         }
 
+        $discount = 0;
+        if ($request->filled('coupon_code')) {
+            $coupon = \App\Models\Coupon::where('coupon_code', strtoupper(trim($request->coupon_code)))->first();
+            if ($coupon && !$coupon->isExpired()) {
+                $d = $coupon->discount;
+                if (str_ends_with($d, '%')) {
+                    $discount = $total * floatval($d) / 100;
+                } else {
+                    $discount = floatval($d);
+                }
+                $discount = min($discount, $total);
+                $total   -= $discount;
+            }
+        }
+
         $shippingFee = $total >= 5_000_000 ? 0 : 30_000;
         $total      += $shippingFee;
 
@@ -62,6 +77,8 @@ class VNPayController extends Controller
                 'payment'    => 'vnpay',
                 'status'     => 'pending_payment',
                 'created_at' => now(),
+                'coupon_code' => $request->coupon_code ? strtoupper(trim($request->coupon_code)) : null,
+                'discount'    => $discount,
             ]);
             foreach ($skuObjects as $entry) {
                 OrderDetail::create([
@@ -121,6 +138,12 @@ class VNPayController extends Controller
                 foreach ($order->details as $detail) {
                     $sku = ProductSku::where('sku_code', $detail->product_sku_code)->first();
                     if ($sku) $sku->decrement('quantity', $detail->quantity);
+                }
+                if ($order->coupon_code) {
+                    \App\Models\CouponUsage::where('user_id', $order->user_id)
+                        ->where('coupon_code', $order->coupon_code)
+                        ->whereNull('used_at')
+                        ->update(['used_at' => now()]);
                 }
             });
 

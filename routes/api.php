@@ -62,6 +62,7 @@ Route::prefix('admin')->group(function () {
 });
 
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
+Route::get('/public/coupons', [CouponController::class, 'getPublicCoupons']);
 
 // ── VNPay ──────────────────────────────────────────────────────────────────
 Route::get('/vnpay/callback', [VNPayController::class, 'callback']); // không cần auth (VNPay gọi)
@@ -94,5 +95,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me',      [AuthController::class, 'me']);
+        Route::get('/user/my-coupons',   [CouponController::class, 'getMyCoupons']);
+        Route::post('/user/save-coupon', [CouponController::class, 'saveCoupon']);
     });
 });
