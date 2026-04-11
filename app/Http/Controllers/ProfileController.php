@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rules\Password;
 use App\Models\ShippingAddress;
 
 class ProfileController extends Controller
@@ -100,9 +101,18 @@ class ProfileController extends Controller
         $user = $request->user();
 
         $validator = Validator::make($request->all(), [
-            'current_password'      => 'required|string',
-            'new_password'          => 'required|string|min:8|confirmed',
-            // 'new_password_confirmation' phải khớp với 'new_password'
+            'current_password' => 'required|string',
+            'new_password'     => [
+                'required',
+                'confirmed',
+                Password::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols(),
+            ],
+        ], [
+            'new_password.confirmed' => 'Xác nhận mật khẩu không khớp.',
+            'new_password.min'       => 'Mật khẩu phải có ít nhất 8 ký tự.',
         ]);
 
         if ($validator->fails()) {
