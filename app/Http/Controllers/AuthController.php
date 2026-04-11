@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rules\Password;
 use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
@@ -20,16 +21,23 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'fullname' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:user',
-            'password' => 'required|string|min:6|confirmed',
+            'email'    => 'required|string|email|max:255|unique:user',
+            'password' => [
+                'required',
+                'confirmed',
+                Password::min(8)
+                    ->mixedCase()   // có cả chữ hoa lẫn chữ thường
+                    ->numbers()     // có ít nhất 1 chữ số
+                    ->symbols(),    // có ít nhất 1 ký tự đặc biệt
+            ],
         ], [
-            'name.required'      => 'Vui lòng nhập họ tên.',
+            'fullname.required'  => 'Vui lòng nhập họ tên.',
             'email.required'     => 'Vui lòng nhập email.',
             'email.email'        => 'Email không hợp lệ.',
             'email.unique'       => 'Email này đã được sử dụng.',
             'password.required'  => 'Vui lòng nhập mật khẩu.',
-            'password.min'       => 'Mật khẩu phải có ít nhất 6 ký tự.',
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
+            'password.min'       => 'Mật khẩu phải có ít nhất 8 ký tự.',
         ]);
 
         if ($validator->fails()) {
@@ -323,10 +331,17 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'email'    => 'required|email|exists:user,email',
             'otp'      => 'required|string|size:6',
-            'password' => 'required|string|min:6|confirmed',
+            'password' => [
+                'required',
+                'confirmed',
+                Password::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols(),
+            ],
         ], [
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
-            'password.min'       => 'Mật khẩu tối thiểu 6 ký tự.',
+            'password.min'       => 'Mật khẩu phải có ít nhất 8 ký tự.',
         ]);
 
         if ($validator->fails()) {
