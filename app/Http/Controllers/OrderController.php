@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use App\Services\GhnService;
 
 class OrderController extends Controller
 {
@@ -24,6 +25,11 @@ class OrderController extends Controller
             'email'            => 'required|email|max:255',
             'phone'            => 'required|string|max:20',
             'address'          => 'required|string|max:500',
+
+            'to_district_id'   => 'required|integer',
+            'to_ward_code'     => 'required|string',
+            'weight'           => 'nullable|integer|min:1',
+
             'payment'          => 'required|string|in:cod,banking,momo,vnpay',
             'items'            => 'required|array|min:1',
             'items.*.product_sku_code' => 'required|string|exists:product_skus,sku_code',
@@ -81,8 +87,15 @@ class OrderController extends Controller
             }
         }
 
-        $shippingFee = $total >= 5_000_000 ? 0 : 30_000;
-        $total      += $shippingFee;
+        $ghn = new GhnService();
+        $shippingFee = $ghn->calculateFee(
+            toDistrictId: (int) $request->to_district_id,
+            toWardCode: $request->to_ward_code,
+            weight: (int) ($request->weight ?? 500),
+            insuranceValue: (int) $total,
+        ) ?? 30_000; 
+
+        $total += $shippingFee;
 
         // Tạo đơn hàng trong transaction
         DB::beginTransaction();
@@ -98,6 +111,7 @@ class OrderController extends Controller
                 'created_at' => now(),
                 'coupon_code' => $request->coupon_code ? strtoupper(trim($request->coupon_code)) : null,
                 'discount'    => $discount,
+                'shipping_fee' => $shippingFee,
             ]);
 
             foreach ($skuObjects as $entry) {

@@ -22,6 +22,7 @@ class Order extends Model
         'created_at',
         'coupon_code',
         'discount',
+        'shipping_fee',
     ];
 
     protected $casts = [

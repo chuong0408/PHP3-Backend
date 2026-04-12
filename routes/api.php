@@ -17,6 +17,7 @@ use App\Http\Controllers\VNPayController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\ContactController; // ← THÊM MỚI
+use App\Http\Controllers\ShippingController;
 
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
@@ -138,4 +139,11 @@ Route::prefix('auth')->group(function () {
         Route::get('/user/my-coupons',   [CouponController::class, 'getMyCoupons']);
         Route::post('/user/save-coupon', [CouponController::class, 'saveCoupon']);
     });
+});
+
+Route::prefix('shipping')->group(function () {
+    Route::get('provinces',       [ShippingController::class, 'provinces']);
+    Route::get('districts',       [ShippingController::class, 'districts']);
+    Route::get('wards',           [ShippingController::class, 'wards']);
+    Route::post('calculate-fee',  [ShippingController::class, 'calculateFee']);
 });
