@@ -187,6 +187,8 @@ class ProfileController extends Controller
             'ward'           => 'required|string|max:100',
             'detail_address' => 'required|string|max:255',
             'is_default'     => 'sometimes|boolean',
+            'ghn_district_id' => 'nullable|integer',
+            'ghn_ward_code'   => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -216,6 +218,8 @@ class ProfileController extends Controller
             'ward'           => $request->ward,
             'detail_address' => $request->detail_address,
             'is_default'     => $isDefault,
+            'ghn_district_id' => $request->ghn_district_id,  // ← thêm
+            'ghn_ward_code'   => $request->ghn_ward_code,
         ]);
 
         return response()->json([
@@ -249,6 +253,8 @@ class ProfileController extends Controller
             'ward'           => 'sometimes|string|max:100',
             'detail_address' => 'sometimes|string|max:255',
             'is_default'     => 'sometimes|boolean',
+            'ghn_district_id' => 'nullable|integer',
+            'ghn_ward_code'   => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -270,6 +276,8 @@ class ProfileController extends Controller
             'ward',
             'detail_address',
             'is_default',
+            'ghn_district_id',
+            'ghn_ward_code',
         ]));
         $address->save();
 

@@ -17,6 +17,8 @@ class ShippingAddress extends Model
         'ward',
         'detail_address',
         'is_default',
+        'ghn_district_id',
+        'ghn_ward_code',
     ];
 
     protected $casts = [
