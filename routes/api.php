@@ -16,6 +16,7 @@ use App\Http\Controllers\SkuController;
 use App\Http\Controllers\VNPayController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\ContactController; // ← THÊM MỚI
 
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
@@ -64,6 +65,12 @@ Route::prefix('admin')->group(function () {
     Route::patch('reviews/{id}/approve', [ReviewController::class, 'approve']);
     Route::patch('reviews/{id}/reject',  [ReviewController::class, 'reject']);
     Route::delete('reviews/{id}',        [ReviewController::class, 'destroy']);
+
+    // ── Contacts (Admin) ──────────────────────────────────────────────────────  ← THÊM MỚI
+    Route::get('contacts',               [ContactController::class, 'index']);
+    Route::get('contacts/{id}',          [ContactController::class, 'show']);
+    Route::patch('contacts/{id}/status', [ContactController::class, 'updateStatus']);
+    Route::delete('contacts/{id}',       [ContactController::class, 'destroy']);
 });
 
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
@@ -74,6 +81,9 @@ Route::get('/vnpay/callback', [VNPayController::class, 'callback']);
 
 // ── PUBLIC: Đánh giá đã duyệt theo sản phẩm ───────────────────────────────────
 Route::get('/reviews/product/{productId}', [ReviewController::class, 'byProduct']);
+
+// ── PUBLIC: Gửi liên hệ (không cần đăng nhập) ─────────────────────────────── ← THÊM MỚI
+Route::post('/contact', [ContactController::class, 'store']);
 
 // ── AUTH REQUIRED ──────────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
