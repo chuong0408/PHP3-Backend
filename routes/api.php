@@ -9,7 +9,6 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\VariantController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\BannerController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\AdminOrderController;
 use App\Http\Controllers\SkuController;
@@ -18,7 +17,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\ContactController; // ← THÊM MỚI
 use App\Http\Controllers\ShippingController;
-
+use App\Http\Controllers\BannerController;
+use App\Http\Controllers\Api\AiChatController;
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 Route::prefix('admin')->group(function () {
@@ -72,6 +72,9 @@ Route::prefix('admin')->group(function () {
     Route::get('contacts/{id}',          [ContactController::class, 'show']);
     Route::patch('contacts/{id}/status', [ContactController::class, 'updateStatus']);
     Route::delete('contacts/{id}',       [ContactController::class, 'destroy']);
+
+    Route::apiResource('banners', BannerController::class);
+    Route::patch('banners/{banner}/toggle', [BannerController::class, 'toggle']);
 });
 
 Route::post('/apply-coupon', [CouponController::class, 'apply']);
@@ -106,7 +109,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/orders',              [OrderController::class, 'index']);
     Route::post('/user/orders',             [OrderController::class, 'store']);
     Route::get('/user/orders/{id}',         [OrderController::class, 'show']);
-    Route::patch('/user/orders/{id}/cancel',[OrderController::class, 'cancel']);
+    Route::patch('/user/orders/{id}/cancel', [OrderController::class, 'cancel']);
 
     // ── Reviews (User) ─────────────────────────────────────────────────────────
     Route::post('/user/reviews', [ReviewController::class, 'store']);
@@ -147,3 +150,5 @@ Route::prefix('shipping')->group(function () {
     Route::get('wards',           [ShippingController::class, 'wards']);
     Route::post('calculate-fee',  [ShippingController::class, 'calculateFee']);
 });
+
+Route::get('/banners', [BannerController::class, 'publicIndex']);
