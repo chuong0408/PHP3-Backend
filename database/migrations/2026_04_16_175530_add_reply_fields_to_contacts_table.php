@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('contacts', function (Blueprint $table) {
-            $table->text('reply_message')->nullable()->after('status');
+            $table->text('reply_message')->nullable()->after('message');
             $table->timestamp('replied_at')->nullable()->after('reply_message');
         });
     }
