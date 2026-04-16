@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ContactReplyMail;
 use App\Models\Contact;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class ContactController extends Controller
 {
@@ -26,12 +28,21 @@ class ContactController extends Controller
         ], 201);
     }
 
-    // ADMIN: Danh sách liên hệ
+    // ADMIN: Danh sách liên hệ (có lọc + search)
     public function index(Request $request)
     {
         $contacts = Contact::latest()
             ->when($request->status, fn($q) => $q->where('status', $request->status))
-            ->paginate(15);
+            ->when($request->search, function ($q) use ($request) {
+                $s = $request->search;
+                $q->where(fn($q2) =>
+                    $q2->where('fullname', 'like', "%$s%")
+                       ->orWhere('email', 'like', "%$s%")
+                       ->orWhere('phone', 'like', "%$s%")
+                       ->orWhere('subject', 'like', "%$s%")
+                );
+            })
+            ->paginate($request->get('per_page', 15));
 
         return response()->json($contacts);
     }
@@ -40,6 +51,39 @@ class ContactController extends Controller
     public function show($id)
     {
         return response()->json(Contact::findOrFail($id));
+    }
+
+    // ADMIN: Trả lời liên hệ → gửi email cho user
+    public function reply(Request $request, $id)
+    {
+        $request->validate([
+            'reply_message' => 'required|string|min:5',
+        ], [
+            'reply_message.required' => 'Vui lòng nhập nội dung trả lời.',
+            'reply_message.min'      => 'Nội dung phải có ít nhất 5 ký tự.',
+        ]);
+
+        $contact = Contact::findOrFail($id);
+
+        // Gửi mail cho user
+        Mail::to($contact->email)->send(new ContactReplyMail(
+            fullname:       $contact->fullname,
+            contactSubject: $contact->subject,
+            userMessage:    $contact->message,
+            replyMessage:   $request->reply_message,
+        ));
+
+        // Cập nhật DB
+        $contact->update([
+            'status'        => 'replied',
+            'reply_message' => $request->reply_message,
+            'replied_at'    => now(),
+        ]);
+
+        return response()->json([
+            'message' => "Đã gửi phản hồi tới {$contact->email}!",
+            'data'    => $contact,
+        ]);
     }
 
     // ADMIN: Cập nhật trạng thái
@@ -60,5 +104,16 @@ class ContactController extends Controller
     {
         Contact::findOrFail($id)->delete();
         return response()->json(['message' => 'Đã xoá liên hệ']);
+    }
+
+    // ADMIN: Thống kê nhanh
+    public function stats()
+    {
+        return response()->json([
+            'total'   => Contact::count(),
+            'pending' => Contact::where('status', 'pending')->count(),
+            'replied' => Contact::where('status', 'replied')->count(),
+            'closed'  => Contact::where('status', 'closed')->count(),
+        ]);
     }
 }

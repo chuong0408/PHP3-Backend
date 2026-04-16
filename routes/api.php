@@ -15,13 +15,18 @@ use App\Http\Controllers\SkuController;
 use App\Http\Controllers\VNPayController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
-use App\Http\Controllers\ContactController; // ← THÊM MỚI
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\Api\AiChatController;
+use App\Http\Controllers\DashboardController;
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 Route::prefix('admin')->group(function () {
+
+    // ── Dashboard Stats ───────────────────────────────────────────────────────
+    Route::get('dashboard/stats', [DashboardController::class, 'stats']);
+
     Route::delete('products/images/{image}', [ProductController::class, 'destroyImage']);
     Route::apiResource('products',   ProductController::class);
     Route::apiResource('categories', CategoryController::class);
@@ -67,9 +72,11 @@ Route::prefix('admin')->group(function () {
     Route::patch('reviews/{id}/reject',  [ReviewController::class, 'reject']);
     Route::delete('reviews/{id}',        [ReviewController::class, 'destroy']);
 
-    // ── Contacts (Admin) ──────────────────────────────────────────────────────  ← THÊM MỚI
+    // ── Contacts (Admin) ──────────────────────────────────────────────────────
+    Route::get('contacts/stats',         [ContactController::class, 'stats']);      // ← THÊM MỚI
     Route::get('contacts',               [ContactController::class, 'index']);
     Route::get('contacts/{id}',          [ContactController::class, 'show']);
+    Route::post('contacts/{id}/reply',   [ContactController::class, 'reply']);      // ← THÊM MỚI
     Route::patch('contacts/{id}/status', [ContactController::class, 'updateStatus']);
     Route::delete('contacts/{id}',       [ContactController::class, 'destroy']);
 
@@ -86,7 +93,7 @@ Route::get('/vnpay/callback', [VNPayController::class, 'callback']);
 // ── PUBLIC: Đánh giá đã duyệt theo sản phẩm ───────────────────────────────────
 Route::get('/reviews/product/{productId}', [ReviewController::class, 'byProduct']);
 
-// ── PUBLIC: Gửi liên hệ (không cần đăng nhập) ─────────────────────────────── ← THÊM MỚI
+// ── PUBLIC: Gửi liên hệ (không cần đăng nhập) ─────────────────────────────────
 Route::post('/contact', [ContactController::class, 'store']);
 
 // ── AUTH REQUIRED ──────────────────────────────────────────────────────────────
@@ -106,9 +113,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/profile/addresses/{id}/set-default',  [ProfileController::class, 'setDefaultAddress']);
 
     // ── Orders (User) ──────────────────────────────────────────────────────────
-    Route::get('/user/orders',              [OrderController::class, 'index']);
-    Route::post('/user/orders',             [OrderController::class, 'store']);
-    Route::get('/user/orders/{id}',         [OrderController::class, 'show']);
+    Route::get('/user/orders',               [OrderController::class, 'index']);
+    Route::post('/user/orders',              [OrderController::class, 'store']);
+    Route::get('/user/orders/{id}',          [OrderController::class, 'show']);
     Route::patch('/user/orders/{id}/cancel', [OrderController::class, 'cancel']);
 
     // ── Reviews (User) ─────────────────────────────────────────────────────────
@@ -127,7 +134,6 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login',    [AuthController::class, 'login']);
 
-    // Google OAuth
     Route::get('/google/redirect', [AuthController::class, 'redirectToGoogle']);
     Route::get('/google/callback', [AuthController::class, 'handleGoogleCallback']);
 
@@ -135,7 +141,6 @@ Route::prefix('auth')->group(function () {
     Route::post('/verify-otp',     [AuthController::class, 'verifyOtp']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-    // Cần token
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout',           [AuthController::class, 'logout']);
         Route::get('/me',                [AuthController::class, 'me']);
@@ -145,10 +150,10 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::prefix('shipping')->group(function () {
-    Route::get('provinces',       [ShippingController::class, 'provinces']);
-    Route::get('districts',       [ShippingController::class, 'districts']);
-    Route::get('wards',           [ShippingController::class, 'wards']);
-    Route::post('calculate-fee',  [ShippingController::class, 'calculateFee']);
+    Route::get('provinces',      [ShippingController::class, 'provinces']);
+    Route::get('districts',      [ShippingController::class, 'districts']);
+    Route::get('wards',          [ShippingController::class, 'wards']);
+    Route::post('calculate-fee', [ShippingController::class, 'calculateFee']);
 });
 
 Route::get('/banners', [BannerController::class, 'publicIndex']);
