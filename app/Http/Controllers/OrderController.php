@@ -204,6 +204,25 @@ class OrderController extends Controller
      */
     public function cancel(Request $request, $id)
     {
+        // Đọc trực tiếp từ JSON body (tương thích cả PATCH và POST)
+        $cancelReason = $request->input('cancel_reason')
+                     ?: $request->json()->get('cancel_reason')
+                     ?: null;
+
+        if (empty($cancelReason) || strlen(trim($cancelReason)) < 5) {
+            return response()->json([
+                'message' => 'Vui lòng nhập lý do huỷ đơn hàng.',
+                'errors'  => ['cancel_reason' => ['Vui lòng nhập lý do huỷ đơn hàng.']],
+            ], 422);
+        }
+
+        if (strlen(trim($cancelReason)) > 500) {
+            return response()->json([
+                'message' => 'Lý do huỷ không được vượt quá 500 ký tự.',
+                'errors'  => ['cancel_reason' => ['Lý do huỷ không được vượt quá 500 ký tự.']],
+            ], 422);
+        }
+
         $user  = $request->user();
         $order = Order::where('user_id', $user->id)->findOrFail($id);
 
@@ -221,7 +240,8 @@ class OrderController extends Controller
             }
         }
 
-        $order->status = 'cancelled';
+        $order->status        = 'cancelled';
+        $order->cancel_reason = trim($cancelReason);
         $order->save();
 
         return response()->json([
@@ -229,6 +249,7 @@ class OrderController extends Controller
             'order'   => $this->formatOrder($order->load('details.sku')),
         ]);
     }
+
 
     // ── Helper ────────────────────────────────────────────────────────────────
 
@@ -258,15 +279,16 @@ class OrderController extends Controller
         })->toArray();
 
         return [
-            'id'         => $order->id,
-            'email'      => $order->email,
-            'phone'      => $order->phone,
-            'address'    => $order->address,
-            'total'      => $order->total,
-            'payment'    => $order->payment,
-            'status'     => $order->status,
-            'created_at' => $order->created_at?->toDateTimeString(),
-            'items'      => $items,
+            'id'            => $order->id,
+            'email'         => $order->email,
+            'phone'         => $order->phone,
+            'address'       => $order->address,
+            'total'         => $order->total,
+            'payment'       => $order->payment,
+            'status'        => $order->status,
+            'cancel_reason' => $order->cancel_reason,
+            'created_at'    => $order->created_at?->toDateTimeString(),
+            'items'         => $items,
         ];
     }
 }
