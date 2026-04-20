@@ -116,7 +116,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/orders',               [OrderController::class, 'index']);
     Route::post('/user/orders',              [OrderController::class, 'store']);
     Route::get('/user/orders/{id}',          [OrderController::class, 'show']);
-    Route::patch('/user/orders/{id}/cancel', [OrderController::class, 'cancel']);
+    Route::match(['post','patch'], '/user/orders/{id}/cancel', [OrderController::class, 'cancel']);
 
     // ── Reviews (User) ─────────────────────────────────────────────────────────
     Route::post('/user/reviews', [ReviewController::class, 'store']);

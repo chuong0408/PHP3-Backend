@@ -133,16 +133,17 @@ class AdminOrderController extends Controller
         });
 
         return [
-            'id'         => $order->id,
-            'email'      => $order->email,
-            'phone'      => $order->phone,
-            'address'    => $order->address,
-            'total'      => (float) $order->total,
-            'payment'    => $order->payment,
-            'status'     => $order->status,
-            'created_at' => $order->created_at?->toDateTimeString(),
-            'items'      => $items,
-            'user'       => $order->user ? [
+            'id'            => $order->id,
+            'email'         => $order->email,
+            'phone'         => $order->phone,
+            'address'       => $order->address,
+            'total'         => (float) $order->total,
+            'payment'       => $order->payment,
+            'status'        => $order->status,
+            'cancel_reason' => $order->cancel_reason,
+            'created_at'    => $order->created_at?->toDateTimeString(),
+            'items'         => $items,
+            'user'          => $order->user ? [
                 'id'       => $order->user->id,
                 'fullname' => $order->user->fullname,
                 'email'    => $order->user->email,

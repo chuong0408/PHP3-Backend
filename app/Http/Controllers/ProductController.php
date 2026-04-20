@@ -102,7 +102,7 @@ class ProductController extends Controller
             // SKU validation
             'skus'                  => 'nullable|array',
             'skus.*.sku_code'       => 'required_with:skus|string|max:255|distinct',
-            'skus.*.price'          => 'required_with:skus|numeric|min:0',
+            'skus.*.price'          => 'required_with:skus|numeric|min:1',
             'skus.*.quantity'       => 'required_with:skus|integer|min:0',
             'skus.*.status'         => 'nullable|in:active,draft,hidden',
         ]);
@@ -173,7 +173,7 @@ class ProductController extends Controller
             // SKU validation
             'skus'                  => 'nullable|array',
             'skus.*.sku_code'       => 'required_with:skus|string|max:255|distinct',
-            'skus.*.price'          => 'required_with:skus|numeric|min:0',
+            'skus.*.price'          => 'required_with:skus|numeric|min:1',
             'skus.*.quantity'       => 'required_with:skus|integer|min:0',
             'skus.*.status'         => 'nullable|in:active,draft,hidden',
         ]);
